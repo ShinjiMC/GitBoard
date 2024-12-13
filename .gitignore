@@ -1,0 +1,17 @@
+node_modules
+
+/.cache
+/build
+/public/build
+.env
+data.json
+.temp
+coverage
+.eslintcache
+cli.js
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/test-results/
+/playwright-report/
+/playwright/.cache/
