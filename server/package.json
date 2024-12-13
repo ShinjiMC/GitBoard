@@ -10,6 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "server": "file:",
     "uuid": "^11.0.3",
     "ws": "^8.18.0"
   }
