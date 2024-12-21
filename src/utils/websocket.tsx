@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react"
+import Chat from "./Chat";
 
 export default function CollaborativeSession() {
   const wsRef = useRef<WebSocket | null>(null);
@@ -83,6 +84,7 @@ export default function CollaborativeSession() {
           }}
         ></div>
       ))}
+      <Chat />
     </div>
   );
 }

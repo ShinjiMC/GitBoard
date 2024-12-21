@@ -20,10 +20,21 @@ import { existsSync } from "node:fs"
 import { readdir } from "node:fs/promises"
 import { log } from "~/analyzer/log.server"
 
-export const loader = async () => {
+
+
+import { UserButton } from '@clerk/remix'
+import { getAuth } from '@clerk/remix/ssr.server'
+import { LoaderFunction, redirect } from '@remix-run/node'
+
+
+
+export const loader: LoaderFunction = async (argst) => {
+  const { userId } = await getAuth(argst)
   const queryPath = null
   const args = getArgsWithDefaults()
-
+  if (!userId) {
+    return redirect('/sign-in')
+  }
   if (queryPath) {
     log.info(`Path provided: ${queryPath}`)
     if (existsSync(queryPath)) {

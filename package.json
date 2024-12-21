@@ -161,7 +161,11 @@
   },
   "homepage": "https://github.com/git-truck/git-truck#readme",
   "dependencies": {
+    "@clerk/remix": "^4.4.6",
     "duckdb-async": "^1.0.0",
-    "git-truck": "file:"
+    "git-truck": "file:",
+    "react-icons": "^5.4.0",
+    "uuid": "^11.0.3",
+    "ws": "^8.18.0"
   }
 }

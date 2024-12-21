@@ -1,5 +1,7 @@
 import { useKonami } from "react-konami-code"
-import type { MetaFunction } from "@remix-run/node"
+import type { MetaFunction, LoaderFunction } from "@remix-run/node"
+import { rootAuthLoader } from '@clerk/remix/ssr.server'
+
 import {
   Links,
   LiveReload,
@@ -17,6 +19,18 @@ import { Code } from "./components/util"
 import tailwindStylesheet from "~/tailwind.css"
 import { ThemeProvider, cn, usePrefersLightMode } from "./styling"
 import datePickerStyles from "react-datepicker/dist/react-datepicker.css"
+import Chat from "./utils/Chat"
+
+import { ClerkApp } from '@clerk/remix'
+import {
+  SignInButton,
+  SignOutButton,
+  SignUpButton,
+  SignedIn,
+  SignedOut,
+  UserButton,
+} from '@clerk/remix'
+
 
 export const meta: MetaFunction = () => {
   return [{ title: "Git Truck" }]
@@ -48,7 +62,18 @@ export function links() {
   ]
 }
 
-export default function App() {
+// Your imports
+
+export const loader: LoaderFunction = (args) => {
+  return rootAuthLoader(args, ({ request }) => {
+    const { sessionId, userId, getToken } = request.auth
+    // Add logic to fetch data
+    return { yourData: 'here' }
+  })
+}
+// Your additional app code
+
+export function App() {
   useKonami(() => window.open("https://fruit-rush.joglr.dev", "_self"))
 
   return (
@@ -61,6 +86,18 @@ export default function App() {
       </head>
       <ThemeProvider>
         <Body>
+        <div className="relative">
+          <div className="z-50 absolute top-1 right-1">
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
+            <SignedOut>
+              <p>Logout</p>
+              <SignInButton />
+            </SignedOut>
+          </div>
+        </div>
+          <Chat />
           <Outlet />
           <ScrollRestoration />
           <Scripts />
@@ -122,3 +159,5 @@ export const ErrorBoundary = () => {
     return null
   }
 }
+
+export default ClerkApp(App)
