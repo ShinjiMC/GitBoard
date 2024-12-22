@@ -27,6 +27,7 @@ export default function Chat() {
       } else if (data.type === "user_added") {
         alert("Usuario agregado a la sala exitosamente.");
       } else if (data.type === "rooms_list") {
+        console.log(data.rooms)
         setRooms(data.rooms); // Extraer IDs de las salas
       }
     };
@@ -43,6 +44,8 @@ export default function Chat() {
           roomId: newRoomId,
           roomName: roomName,
           creatorId: user.id, // ID del usuario creador
+          username: user.fullName, // Asume que el username viene del contexto del usuario
+          image: user.imageUrl, 
         })
       );
     }
@@ -55,6 +58,8 @@ export default function Chat() {
           type: "add_user",
           roomId: roomInput, // Sala a la que se desea agregar el usuario
           userId: user.id,
+          username: user.fullName,
+          image: user.imageUrl,
         })
       );
       setRoomInput(""); // Limpiar el campo de entrada
@@ -85,7 +90,7 @@ export default function Chat() {
   }, []); // Empty array para ejecutarlo solo una vez al montar
 
   return (
-    <div className="z-50 fixed bg-white rounded-lg">
+    <div className="z-50 fixed bg-white rounded-lg bottom-0 right-0">
       <button onClick={() => setIsOpen(!isOpen)} className="p-2 text-lg">
         {isOpen ? <MdChat color="blue" size={50} /> : <MdChat color="black" size={50} />}
       </button>
@@ -151,9 +156,9 @@ export default function Chat() {
               <p>No hay salas asociadas.</p>
             )}
           </div>
+          {roomIdSelected && <Messages key={roomIdSelected} userId={user?.id} roomId={roomIdSelected} roomName={rooms.find((room) => room.roomId === roomIdSelected).roomName} />}
         </div>
       )}
-      {roomIdSelected && <Messages key={roomIdSelected} userId={user?.id} roomId={roomIdSelected} />}
     </div>
   );
 }

@@ -3,9 +3,10 @@ import React, { useEffect, useRef, useState } from "react";
 interface ChatProps {
   roomId: string; // ID de la sala
   userId: string; // ID del usuario
+  roomName: string
 }
 
-export default function Messages({ roomId, userId }: ChatProps) {
+export default function Messages({ roomId, userId, roomName }: ChatProps) {
   const ws = useRef<WebSocket | null>(null);
   const [messages, setMessages] = useState<any[]>([]); // Estado para los mensajes
   const [newMessage, setNewMessage] = useState(""); // Estado para el nuevo mensaje
@@ -29,6 +30,7 @@ export default function Messages({ roomId, userId }: ChatProps) {
       }
 
       if (data.type === "new_message") {
+        console.log(data)
         setMessages((prevMessages) => [...prevMessages, data.message]); // Añadir el nuevo mensaje
       }
     };
@@ -76,7 +78,7 @@ export default function Messages({ roomId, userId }: ChatProps) {
   return (
     <div className="bg-gray-100 p-6 rounded-lg shadow-lg max-w-2xl mx-auto mt-8">
       {/* Contenedor de mensajes */}
-      <h1 className="text-xl font-bold text-center text-blue-600 mb-4">Sala: {roomId}</h1>
+      <h1 className="text-xl font-bold text-center text-blue-600 mb-4">Sala: {roomName}</h1>
 
       <div className="overflow-y-auto bg-white p-4 rounded-lg shadow-md mb-4">
         <ul className="space-y-4">
@@ -85,7 +87,8 @@ export default function Messages({ roomId, userId }: ChatProps) {
               key={index}
               className={`p-2 rounded-lg ${index % 2 === 0 ? 'bg-blue-100' : 'bg-gray-100'}`}
             >
-              <span className="font-semibold text-blue-600">{msg.userId}:</span>{" "}
+              <img src={msg.image} className="w-12 h-12"/>
+              <span className="font-semibold text-blue-600">{msg.username}:</span>{" "}
               <span>{msg.message}</span>
               <div className="text-xs text-gray-500 mt-1">
                 <small>{new Date(msg.timestamp).toLocaleTimeString()}</small>

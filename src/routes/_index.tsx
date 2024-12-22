@@ -20,13 +20,8 @@ import { existsSync } from "node:fs"
 import { readdir } from "node:fs/promises"
 import { log } from "~/analyzer/log.server"
 
-
-
-import { UserButton } from '@clerk/remix'
 import { getAuth } from '@clerk/remix/ssr.server'
 import { LoaderFunction, redirect } from '@remix-run/node'
-
-
 
 export const loader: LoaderFunction = async (argst) => {
   const { userId } = await getAuth(argst)
