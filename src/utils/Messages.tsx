@@ -14,7 +14,8 @@ export default function Messages({ roomId, userId, roomName }: ChatProps) {
 
   useEffect(() => {
     // Conexión WebSocket
-    ws.current = new WebSocket("ws://localhost:5000");
+    // ws.current = new WebSocket("wss://cnwl3hx9-5000.brs.devtunnels.ms/");
+    ws.current = new WebSocket("ws://localhost:5000/");
 
     // Manejar la apertura de la conexión
     ws.current.onopen = () => {
@@ -77,29 +78,26 @@ export default function Messages({ roomId, userId, roomName }: ChatProps) {
 
   return (
     <div className="bg-gray-100 p-6 rounded-lg shadow-lg max-w-2xl mx-auto mt-8">
-      {/* Contenedor de mensajes */}
-      <h1 className="text-xl font-bold text-center text-blue-600 mb-4">Sala: {roomName}</h1>
-
-      <div className="overflow-y-auto bg-white p-4 rounded-lg shadow-md mb-4">
-        <ul className="space-y-4">
-          {messages.map((msg, index) => (
-            <li
-              key={index}
-              className={`p-2 rounded-lg ${index % 2 === 0 ? 'bg-blue-100' : 'bg-gray-100'}`}
-            >
-              <img src={msg.image} className="w-12 h-12"/>
-              <span className="font-semibold text-blue-600">{msg.username}:</span>{" "}
-              <span>{msg.message}</span>
-              <div className="text-xs text-gray-500 mt-1">
-                <small>{new Date(msg.timestamp).toLocaleTimeString()}</small>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
+      <ul className="space-y-4 w-full overflow-y-auto max-h-[45vh]">
+        {messages.map((msg, index) => (
+          <li
+            key={index}
+            className={`p-2 rounded-lg ${index % 2 === 0 ? 'bg-blue-100' : 'bg-gray-100'}`}
+          >
+            <div className="flex justify-between items-center">
+              <img src={msg.image} className="w-8 h-8 rounded-full" />
+              <span className="font-semibold text-blue-600 text-sm">{msg.username.split(' ')[0]}</span>{" "}
+            </div>
+            <span>{msg.message}</span>
+            <div className="text-xs text-gray-500 mt-1">
+              <small>{new Date(msg.timestamp).toLocaleTimeString()}</small>
+            </div>
+          </li>
+        ))}
+      </ul>
 
       {/* Input para el nuevo mensaje */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 mt-4">
         <input
           type="text"
           value={newMessage}

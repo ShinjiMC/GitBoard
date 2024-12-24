@@ -16,7 +16,8 @@ export default function Chat() {
 
   useEffect(() => {
     // Establecer WebSocket
-    ws.current = new WebSocket("ws://localhost:5000");
+    //ws.current = new WebSocket("wss://cnwl3hx9-5000.brs.devtunnels.ms/");
+    ws.current = new WebSocket("ws://localhost:5000/");
 
     ws.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -45,7 +46,7 @@ export default function Chat() {
           roomName: roomName,
           creatorId: user.id, // ID del usuario creador
           username: user.fullName, // Asume que el username viene del contexto del usuario
-          image: user.imageUrl, 
+          image: user.imageUrl,
         })
       );
     }
@@ -90,75 +91,80 @@ export default function Chat() {
   }, []); // Empty array para ejecutarlo solo una vez al montar
 
   return (
-    <div className="z-50 fixed bg-white rounded-lg bottom-0 right-0">
-      <button onClick={() => setIsOpen(!isOpen)} className="p-2 text-lg">
-        {isOpen ? <MdChat color="blue" size={50} /> : <MdChat color="black" size={50} />}
-      </button>
-
+    <div className="z-50 fixed bg-white rounded-lg bottom-0 right-0 overflow-y-auto flex flex-col">
+      {
+        !isOpen && <button onClick={() => setIsOpen(!isOpen)} className="text-lg">
+          {isOpen ? <MdChat color="blue" size={50} /> : <MdChat color="black" size={50} />}
+        </button>
+      }
       {isOpen && (
-        <div className="border border-gray-300 p-4 mt-4">
-          <h1 className="text-xl font-semibold">Gestión de Salas de Chat</h1>
+        <div className="p-4 mt-4 flex flex-col flex-grow">
+          <button onClick={() => setIsOpen(!isOpen)} className="text-lg">
+            {isOpen ? <MdChat color="blue" size={50} /> : <MdChat color="black" size={50} />}
+          </button>
+          <div className="overflow-auto flex-1 max-h-[30vh]">
+            <h1 className="text-xl font-semibold">Gestión de Salas de Chat</h1>
+            <div className="mb-4">
+              <button
+                onClick={createRoom}
+                className="mr-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Crear Sala
+              </button>
+              <input
+                type="text"
+                placeholder="Nombre de la Sala"
+                value={roomName}
+                onChange={(e) => setRoomName(e.target.value)}
+                className="mr-2 p-2 border border-gray-300 rounded"
+              />
+              {roomId && <><h2>Última sala creada: </h2><h2 className="max-w-96 overflow-auto p-2 bg-green-400 rounded">{roomId}</h2></>}
+            </div>
 
-          {/* Crear Sala */}
-          <div className="mb-4">
-            <button
-              onClick={createRoom}
-              className="mr-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-            >
-              Crear Sala
-            </button>
-            <input
-              type="text"
-              placeholder="Nombre de la Sala"
-              value={roomName}
-              onChange={(e) => setRoomName(e.target.value)}
-              className="mr-2 p-2 border border-gray-300 rounded"
-            />
-            {roomId && <span>Última sala creada: {roomId}</span>}
-          </div>
+            {/* Agregar Usuario a una Sala */}
+            <div className="mb-4 flex items-center">
+              <input
+                type="text"
+                placeholder="ID de la Sala"
+                value={roomInput}
+                onChange={(e) => setRoomInput(e.target.value)}
+                className="mr-2 p-2 border border-gray-300 rounded"
+              />
+              <button
+                onClick={addUserToRoom}
+                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+              >
+                Unirse a Sala
+              </button>
+            </div>
 
-          {/* Agregar Usuario a una Sala */}
-          <div className="mb-4 flex items-center">
-            <input
-              type="text"
-              placeholder="ID de la Sala"
-              value={roomInput}
-              onChange={(e) => setRoomInput(e.target.value)}
-              className="mr-2 p-2 border border-gray-300 rounded"
-            />
-            <button
-              onClick={addUserToRoom}
-              className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-            >
-              Unirse a Sala
-            </button>
-          </div>
-
-          {/* Listar Salas */}
-          <div>
-            <button
-              onClick={listUserRooms}
-              className="mb-4 px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
-            >
-              Listar Salas
-            </button>
-            {rooms.length > 0 ? (
-              <ul>
-                {rooms.map((room, index) => (
-                  <li key={index} className="mb-2">
-                    <button onClick={() => setRoomIdSelected(room.roomId)}>
-                      {room.roomName}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>No hay salas asociadas.</p>
-            )}
+            {/* Listar Salas */}
+            <div>
+              <button
+                onClick={listUserRooms}
+                className="mb-4 px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+              >
+                Listar Salas
+              </button>
+              {rooms.length > 0 ? (
+                <ul className="max-h-[10em] overflow-auto grid grid-cols-3 gap-x-3">
+                  {rooms.map((room, index) => (
+                    <li key={index} className="mb-2">
+                      <button onClick={() => setRoomIdSelected(room.roomId)} className={`p-2 bg-yellow-300 rounded-lg ${room.roomId === roomIdSelected && "bg-red-400"} w-full`}>
+                        {room.roomName}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No hay salas asociadas.</p>
+              )}
+            </div>
           </div>
           {roomIdSelected && <Messages key={roomIdSelected} userId={user?.id} roomId={roomIdSelected} roomName={rooms.find((room) => room.roomId === roomIdSelected).roomName} />}
         </div>
       )}
     </div>
   );
+
 }

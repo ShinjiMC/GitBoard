@@ -84,7 +84,6 @@ export default function CollaborativeSession() {
           }}
         ></div>
       ))}
-      <Chat />
     </div>
   );
 }
