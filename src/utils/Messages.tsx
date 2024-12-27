@@ -1,31 +1,35 @@
 import React, { useEffect, useRef, useState } from "react";
 
-interface ChatProps {
-  roomId: string; // ID de la sala
-  userId: string; // ID del usuario
-  roomName: string
-}
-
-export default function Messages({ roomId, userId, roomName }: ChatProps) {
+export default function Messages({ roomId, userId }: { roomId: string; userId: string }) {
   const ws = useRef<WebSocket | null>(null);
+  const [isConnected, setIsConnected] = useState(false); // Estado para verificar si WebSocket está conectado
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
   const [messages, setMessages] = useState<any[]>([]); // Estado para los mensajes
   const [newMessage, setNewMessage] = useState(""); // Estado para el nuevo mensaje
-  const [isConnected, setIsConnected] = useState(false); // Estado para verificar si WebSocket está conectado
 
   useEffect(() => {
     // Conexión WebSocket
-    // ws.current = new WebSocket("wss://cnwl3hx9-5000.brs.devtunnels.ms/");
     ws.current = new WebSocket("ws://localhost:5000/");
 
-    // Manejar la apertura de la conexión
     ws.current.onopen = () => {
       setIsConnected(true);
     };
 
-    // Escuchar mensajes del servidor
     ws.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
 
+      if (data.type === "new_audio_message") {
+        if (data.roomId === roomId && data.userId !== userId) {
+          const audioArrayBuffer = new Uint8Array(data.audio).buffer; // Reconstruir el ArrayBuffer
+          const blob = new Blob([audioArrayBuffer], { type: "audio/webm" });
+          const audioURL = URL.createObjectURL(blob);
+
+          // Crear y reproducir el audio automáticamente
+          const audio = new Audio(audioURL);
+          audio.play().catch((error) => console.error("Error playing audio:", error));
+        }
+      }
       if (data.type === "messages") {
         setMessages(data.messages); // Guardar los mensajes
       }
@@ -34,20 +38,21 @@ export default function Messages({ roomId, userId, roomName }: ChatProps) {
         console.log(data)
         setMessages((prevMessages) => [...prevMessages, data.message]); // Añadir el nuevo mensaje
       }
+      // Solicitar los mensajes una vez que la conexión esté abierta
+      if (ws.current?.readyState === WebSocket.OPEN) {
+        ws.current.send(
+          JSON.stringify({
+            type: "get_messages",
+            userId,
+            roomId,
+          })
+        );
+      }
     };
 
-    // Solicitar los mensajes una vez que la conexión esté abierta
-    if (ws.current?.readyState === WebSocket.OPEN) {
-      ws.current.send(
-        JSON.stringify({
-          type: "get_messages",
-          userId,
-          roomId,
-        })
-      );
-    }
-
-    return () => ws.current?.close(); // Cerrar WebSocket cuando el componente se desmonte
+    return () => {
+      ws.current?.close(); // Cerrar WebSocket cuando el componente se desmonte
+    };
   }, [roomId, userId]);
 
   useEffect(() => {
@@ -74,10 +79,56 @@ export default function Messages({ roomId, userId, roomName }: ChatProps) {
       );
       setNewMessage(""); // Limpiar el campo de texto después de enviar
     }
+  }
+  const startRecording = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream);
+    const audioChunks: Blob[] = [];
+
+    recorder.ondataavailable = (event) => {
+      console.log("Audio chunk received:", event.data);
+      audioChunks.push(event.data); // Guarda cada chunk
+    };
+
+    recorder.onstop = () => {
+      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+      console.log("Final Audio Blob:", audioBlob);
+
+      const reader = new FileReader();
+      reader.readAsArrayBuffer(audioBlob);
+
+      reader.onloadend = () => {
+        const audioArrayBuffer = reader.result;
+        console.log("Audio ArrayBuffer:", audioArrayBuffer);
+
+        if (ws.current?.readyState === WebSocket.OPEN && audioArrayBuffer) {
+          ws.current.send(
+            JSON.stringify({
+              type: "send_audio",
+              userId,
+              roomId,
+              audio: Array.from(new Uint8Array(audioArrayBuffer as Uint8Array)), // Enviar como array de bytes
+            })
+          );
+        }
+      };
+    };
+
+    recorder.start();
+    setMediaRecorder(recorder);
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    mediaRecorder?.stop();
+    setIsRecording(false);
   };
 
   return (
     <div className="bg-gray-100 p-6 rounded-lg shadow-lg max-w-2xl mx-auto mt-8">
+      <button onClick={isRecording ? stopRecording : startRecording} className="bg-green-800 text-white rounded-md px-4 py-2 hover:bg-slate-800">
+        {isRecording ? "Stop Recording" : "Record Audio"}
+      </button>
       <ul className="space-y-4 w-full overflow-y-auto max-h-[45vh]">
         {messages.map((msg, index) => (
           <li
@@ -97,7 +148,7 @@ export default function Messages({ roomId, userId, roomName }: ChatProps) {
       </ul>
 
       {/* Input para el nuevo mensaje */}
-      <div className="flex gap-2 mt-4">
+      <div className="bg-gray-100 p-6 rounded-lg shadow-lg max-w-2xl mx-auto mt-8">
         <input
           type="text"
           value={newMessage}

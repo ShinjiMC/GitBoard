@@ -268,7 +268,44 @@ wss.on("connection", (ws) => {
         ws.send(JSON.stringify({ type: "error", message: "Error al obtener los mensajes" }));
       }
     }    
-
+    // voz
+    if (data.type === "send_audio") {
+      const { roomId, userId, audio } = data;
+      try {
+        // Verificar si la sala existe
+        const room = await Room.findOne({ roomId });
+        if (!room) {
+          ws.send(JSON.stringify({ type: "error", message: "La sala no existe" }));
+          return;
+        }
+    
+        // Buscar la información del usuario dentro de la sala
+        const user = room.users.find((user) => user.userId === userId);
+        if (!user) {
+          ws.send(JSON.stringify({ type: "error", message: "Usuario no está en la sala" }));
+          return;
+        }
+    
+        // Enviar el mensaje de audio a todos los clientes de la sala
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(
+              JSON.stringify({
+                type: "new_audio_message",
+                roomId,
+                userId,
+                audio: Array.from(new Uint8Array(audio)),
+              })
+            );
+          }
+        });
+      } catch (error) {
+        console.error("Error al enviar el mensaje de audio:", error);
+        ws.send(JSON.stringify({ type: "error", message: "Error al enviar el mensaje de audio" }));
+      }
+    }
+    
+    
   });
 
   ws.on("close", () => {

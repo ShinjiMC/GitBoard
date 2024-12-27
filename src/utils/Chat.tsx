@@ -16,6 +16,7 @@ export default function Chat() {
 
   useEffect(() => {
     ws.current = new WebSocket("ws://localhost:5000/");
+    //ws.current = new WebSocket("wss://cnwl3hx9-5000.brs.devtunnels.ms/");
 
     ws.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
