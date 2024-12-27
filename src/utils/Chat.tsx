@@ -1,35 +1,31 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useSession, useUser } from "@clerk/remix";
-import { v4 as uuidv4 } from "uuid"; // Para generar IDs únicos
+import { useUser } from "@clerk/remix";
+import { v4 as uuidv4 } from "uuid";
 import Messages from "./Messages";
 import { MdChat } from "react-icons/md";
 
 export default function Chat() {
   const ws = useRef<WebSocket | null>(null);
-  const [isOpen, setIsOpen] = useState(false); // Control de expansión del chat
-  const [roomId, setRoomId] = useState<string | null>(null); // ID de la sala creada
-  const [roomInput, setRoomInput] = useState(""); // Campo para ingresar el ID de la sala al agregar usuario
-  const [rooms, setRooms] = useState<any[]>([]); // Lista de salas del usuario
+  const [isOpen, setIsOpen] = useState(false);
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const [roomInput, setRoomInput] = useState("");
+  const [rooms, setRooms] = useState<any[]>([]);
   const [roomIdSelected, setRoomIdSelected] = useState(null);
   const [roomName, setRoomName] = useState("");
   const { user } = useUser();
 
   useEffect(() => {
-    // Establecer WebSocket
-    //ws.current = new WebSocket("wss://cnwl3hx9-5000.brs.devtunnels.ms/");
     ws.current = new WebSocket("ws://localhost:5000/");
 
     ws.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
-
       if (data.type === "room_created") {
-        alert(`Sala creada: ${data.room.roomId}`);
+        // alert(`Sala creada: ${data.room.roomId}`);
         setRoomId(data.room.roomId);
       } else if (data.type === "user_added") {
-        alert("Usuario agregado a la sala exitosamente.");
+        // alert("Usuario agregado a la sala exitosamente.");
       } else if (data.type === "rooms_list") {
-        console.log(data.rooms)
-        setRooms(data.rooms); // Extraer IDs de las salas
+        setRooms(data.rooms);
       }
     };
 
@@ -37,19 +33,20 @@ export default function Chat() {
   }, []);
 
   const createRoom = () => {
-    const newRoomId = uuidv4(); // Generar un ID único para la sala
+    const newRoomId = uuidv4();
     if (ws.current?.readyState === WebSocket.OPEN && user?.id) {
       ws.current.send(
         JSON.stringify({
           type: "create_room",
           roomId: newRoomId,
           roomName: roomName,
-          creatorId: user.id, // ID del usuario creador
-          username: user.fullName, // Asume que el username viene del contexto del usuario
+          creatorId: user.id,
+          username: user.fullName,
           image: user.imageUrl,
         })
       );
     }
+    listUserRooms();
   };
 
   const addUserToRoom = () => {
@@ -57,13 +54,13 @@ export default function Chat() {
       ws.current.send(
         JSON.stringify({
           type: "add_user",
-          roomId: roomInput, // Sala a la que se desea agregar el usuario
+          roomId: roomInput,
           userId: user.id,
           username: user.fullName,
           image: user.imageUrl,
         })
       );
-      setRoomInput(""); // Limpiar el campo de entrada
+      setRoomInput("");
     }
   };
 
@@ -78,93 +75,138 @@ export default function Chat() {
     }
   };
 
-  // useEffect para ejecutar la función listUserRooms al montar el componente o cambiar `isOpen`
   useEffect(() => {
-    if (isOpen) {
-      listUserRooms(); // Solo se ejecuta si el chat está abierto
-    }
-  }, [isOpen]); // Dependencia de `isOpen`
+    let intervalId: any;
 
-  // useEffect para ejecutar listUserRooms cuando el componente se monte
-  useEffect(() => {
-    listUserRooms(); // Se ejecuta cuando el componente se monta
-  }, []); // Empty array para ejecutarlo solo una vez al montar
+    if (isOpen) {
+      // Ejecutar inmediatamente y luego iniciar el intervalo
+      listUserRooms();
+      intervalId = setInterval(() => {
+        listUserRooms();
+      }, 2000);
+    }
+
+    return () => {
+      // Limpiar el intervalo cuando `isOpen` cambie o el componente se desmonte
+      clearInterval(intervalId);
+    };
+  }, [isOpen]);
+
+
 
   return (
-    <div className="z-50 fixed bg-white rounded-lg bottom-0 right-0 overflow-y-auto flex flex-col">
-      {
-        !isOpen && <button onClick={() => setIsOpen(!isOpen)} className="text-lg">
-          {isOpen ? <MdChat color="blue" size={50} /> : <MdChat color="black" size={50} />}
-        </button>
-      }
-      {isOpen && (
-        <div className="p-4 mt-4 flex flex-col flex-grow">
-          <button onClick={() => setIsOpen(!isOpen)} className="text-lg">
-            {isOpen ? <MdChat color="blue" size={50} /> : <MdChat color="black" size={50} />}
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end">
+      <div
+        className={`w-96 bg-white shadow-lg rounded-lg overflow-hidden flex flex-col transform 
+          transition-transform duration-300 ease-in-out ${isOpen ? "scale-100" : "scale-0 hidden"}`}
+      >
+        {/* Encabezado del chat */}
+        <div className="flex items-center justify-between p-4 bg-[#3B82F6] text-white">
+          <h1 className="text-lg font-semibold">Gestión de Salas</h1>
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="p-1 rounded hover:bg-blue-700 focus:outline-none"
+          >
+            <MdChat size={24} />
           </button>
-          <div className="overflow-auto flex-1 max-h-[30vh]">
-            <h1 className="text-xl font-semibold">Gestión de Salas de Chat</h1>
-            <div className="mb-4">
-              <button
-                onClick={createRoom}
-                className="mr-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Crear Sala
-              </button>
+        </div>
+
+        {/* Contenido del chat */}
+        <div className="p-4 space-y-4 flex-1 overflow-auto">
+          {/* Crear Sala */}
+          <div>
+            <h2 className="text-sm font-medium text-gray-700 mb-2">Crear Sala</h2>
+            <div className="flex space-x-2">
               <input
                 type="text"
                 placeholder="Nombre de la Sala"
                 value={roomName}
                 onChange={(e) => setRoomName(e.target.value)}
-                className="mr-2 p-2 border border-gray-300 rounded"
+                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
-              {roomId && <><h2>Última sala creada: </h2><h2 className="max-w-96 overflow-auto p-2 bg-green-400 rounded">{roomId}</h2></>}
+              <button
+                // listUserRooms
+                onClick={createRoom}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Crear
+              </button>
             </div>
+            {roomId && (
+              <p className="mt-2 text-sm text-green-600">Última sala creada: {roomId}</p>
+            )}
+          </div>
 
-            {/* Agregar Usuario a una Sala */}
-            <div className="mb-4 flex items-center">
+          {/* Unirse a Sala */}
+          <div>
+            <h2 className="text-sm font-medium text-gray-700 mb-2">Unirse a Sala</h2>
+            <div className="flex space-x-2">
               <input
                 type="text"
                 placeholder="ID de la Sala"
                 value={roomInput}
                 onChange={(e) => setRoomInput(e.target.value)}
-                className="mr-2 p-2 border border-gray-300 rounded"
+                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-green-500 focus:outline-none"
               />
               <button
                 onClick={addUserToRoom}
                 className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
               >
-                Unirse a Sala
+                Unirse
               </button>
-            </div>
-
-            {/* Listar Salas */}
-            <div>
-              <button
-                onClick={listUserRooms}
-                className="mb-4 px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
-              >
-                Listar Salas
-              </button>
-              {rooms.length > 0 ? (
-                <ul className="max-h-[10em] overflow-auto grid grid-cols-3 gap-x-3">
-                  {rooms.map((room, index) => (
-                    <li key={index} className="mb-2">
-                      <button onClick={() => setRoomIdSelected(room.roomId)} className={`p-2 bg-yellow-300 rounded-lg ${room.roomId === roomIdSelected && "bg-red-400"} w-full`}>
-                        {room.roomName}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>No hay salas asociadas.</p>
-              )}
             </div>
           </div>
-          {roomIdSelected && <Messages key={roomIdSelected} userId={user?.id} roomId={roomIdSelected} roomName={rooms.find((room) => room.roomId === roomIdSelected).roomName} />}
+
+          {/* Listar Salas */}
+          <div>
+            <h2 className="text-sm font-medium text-gray-700 mb-2">Mis Salas</h2>
+            {/* <button
+              onClick={listUserRooms}
+              className="mb-2 px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+            >
+              Listar Salas
+            </button> */}
+            {rooms.length > 0 ? (
+              <ul className="space-y-2">
+                {rooms.map((room, index) => (
+                  <li key={index}>
+                    <button
+                      onClick={() => setRoomIdSelected(room.roomId)}
+                      className={`w-full p-2 text-left rounded border ${room.roomId === roomIdSelected
+                        ? "bg-yellow-400 border-yellow-500"
+                        : "hover:bg-gray-100"
+                        }`}
+                    >
+                      {room.roomName}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-500">No hay salas asociadas.</p>
+            )}
+          </div>
         </div>
-      )}
+
+        {/* Componente de mensajes */}
+        {roomIdSelected && (
+          <Messages
+            key={roomIdSelected}
+            userId={user?.id || ""}
+            roomId={roomIdSelected}
+            roomName={rooms.find((room) => room.roomId === roomIdSelected).roomName}
+          />
+        )}
+      </div>
+
+      {/* Botón flotante para abrir/cerrar el chat */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 focus:outline-none 
+          transition-transform duration-300 ease-in-out ${isOpen ? "scale-0" : "scale-100"}`}
+      >
+        <MdChat size={24} />
+      </button>
     </div>
   );
-
 }
