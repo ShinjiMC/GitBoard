@@ -1,6 +1,7 @@
 import type { HierarchyCircularNode, HierarchyNode, HierarchyRectangularNode } from "d3-hierarchy"
 import { hierarchy, pack, treemap, treemapResquarify } from "d3-hierarchy"
 import type { MouseEventHandler } from "react"
+import { type Fetcher, Form, useFetcher, useLocation, useNavigation } from "@remix-run/react"
 import { useDeferredValue, memo, useEffect, useMemo, useState } from "react"
 import type { GitBlobObject, GitObject, GitTreeObject } from "~/analyzer/model"
 import { useClickedObject } from "~/contexts/ClickedContext"
@@ -38,6 +39,7 @@ type CircleOrRectHiearchyNode = HierarchyCircularNode<GitObject> | HierarchyRect
 export const Chart = memo(function Chart({ setHoveredObject }: { setHoveredObject: (obj: GitObject | null) => void }) {
   const [ref, rawSize] = useComponentSize()
   const { searchResults } = useSearch()
+  const location = useLocation()
   const size = useDeferredValue(rawSize)
   const { databaseInfo } = useData()
   const { chartType, sizeMetric, depthType, hierarchyType, labelsVisible, renderCutoff } = useOptions()
@@ -136,18 +138,26 @@ export const Chart = memo(function Chart({ setHoveredObject }: { setHoveredObjec
       }
   }
 
-  const handleBlinkClick = async (path: string) => {
-    console.log(`Opening path: ${path}`);
-    setOpenPath(path);
-    try {
-      const response = await fetch(path);
-      if (!response.ok) throw new Error("Failed to fetch file content");
-      const text = await response.text();
-      setFileContent(text);
-    } catch (error) {
-      console.error("Error loading file:", error);
-      setFileContent("Unable to load file content");
-    }
+  const handleBlinkClick = (path: string) => {
+    console.log(`Opening file at: ${path}`);
+
+    // Enviar el path mediante un POST (similar al comportamiento de tu Form)
+    fetch(location.pathname, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded", // Usamos el mismo tipo de contenido que un formulario tradicional
+      },
+      body: new URLSearchParams({
+        open: path, // Similar al input hidden en tu Form
+      }),
+    })
+      .then((response) => response.json()) // Si el backend devuelve algo, lo procesamos
+      .then((data) => {
+        console.log("File opened successfully:", data);
+      })
+      .catch((error) => {
+        console.error("Error opening file:", error);
+      });
   };
 
 
@@ -157,16 +167,14 @@ export const Chart = memo(function Chart({ setHoveredObject }: { setHoveredObjec
       <svg
         key={`svg|${size.width}|${size.height}`}
         className={clsx("grid h-full w-full place-items-center stroke-gray-300 dark:stroke-gray-700", {
-          "cursor-zoom-out": path.includes("/")
+          "cursor-zoom-out": path.includes("/"),
         })}
         xmlns="http://www.w3.org/2000/svg"
         viewBox={`0 0 ${size.width} ${size.height}`}
         onClick={() => {
-          // Move up to parent
-          const parentPath = path.split("/").slice(0, -1).join("/")
-          // Check if parent is root
-          if (parentPath === "") setPath("/")
-          else setPath(parentPath)
+          const parentPath = path.split("/").slice(0, -1).join("/");
+          if (parentPath === "") setPath("/");
+          else setPath(parentPath);
         }}
       >
         {nodes.map((d, i) => {
@@ -183,9 +191,8 @@ export const Chart = memo(function Chart({ setHoveredObject }: { setHoveredObjec
               onClick={(e) => {
                 e.stopPropagation();
                 if (isBlinking) {
-                  handleBlinkClick(d.data.path); // Abre el cuadro de texto si está parpadeando
+                  handleBlinkClick(d.data.path);  // Aquí llamamos la función para abrir el archivo
                 } else {
-                  // Llamar al comportamiento por defecto del grupo (ej. zoom)
                   if (isBlob(d.data)) {
                     setClickedObject(d.data);
                   } else {
@@ -205,36 +212,9 @@ export const Chart = memo(function Chart({ setHoveredObject }: { setHoveredObjec
                 </>
               )}
             </g>
-          )
+          );
         })}
       </svg>
-      {openPath && (
-        <div
-          className="absolute top-10 left-10 bg-white p-4 shadow-lg border rounded-md"
-          style={{ maxWidth: '90%' }} // Limita el ancho del cuadro emergente al 90% del contenedor principal
-        >
-          <button
-            className="absolute top-1 right-1 text-gray-500 hover:text-gray-700"
-            onClick={() => {
-              setOpenPath(null);
-              setFileContent(null);
-            }}
-          >
-            ✕
-          </button>
-          <h3 className="text-lg font-bold">Path Viewer</h3>
-          <p className="text-sm text-gray-600 mb-2">Path: {openPath}</p>
-          <pre
-            className="overflow-auto p-2 bg-gray-100 rounded border text-sm max-h-60 whitespace-pre-wrap break-words"
-            style={{
-              maxWidth: '100%', // El pre nunca será más ancho que el contenedor
-              wordWrap: 'break-word', // Rompe palabras largas si exceden el ancho
-            }}
-          >
-            {fileContent || 'Loading...'}
-          </pre>
-        </div>
-      )}
 
     </div>
   )
