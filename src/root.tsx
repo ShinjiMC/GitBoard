@@ -86,23 +86,23 @@ export function App() {
       </head>
       <ThemeProvider>
         <Body>
-        <div className="relative">
-          <div className="z-50 absolute top-1 right-1">
-            <SignedIn>
-              <UserButton />
-            </SignedIn>
-            <SignedOut>
-              <p>Logout</p>
-              <SignInButton />
-            </SignedOut>
+          <div className="relative">
+            <div className="z-50 absolute top-1 right-1">
+              <SignedIn>
+                <UserButton />
+              </SignedIn>
+              <SignedOut>
+                <p>Logout</p>
+                <SignInButton />
+              </SignedOut>
+            </div>
           </div>
-        </div>
           <Chat />
           <Outlet />
           <ScrollRestoration />
           <Scripts />
           <LiveReload />
-          <CollaborativeSession />
+          {/* <CollaborativeSession /> */}
         </Body>
       </ThemeProvider>
     </html>

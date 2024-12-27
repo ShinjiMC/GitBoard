@@ -1,7 +1,7 @@
 import type { HierarchyCircularNode, HierarchyNode, HierarchyRectangularNode } from "d3-hierarchy"
 import { hierarchy, pack, treemap, treemapResquarify } from "d3-hierarchy"
 import type { MouseEventHandler } from "react"
-import { useDeferredValue, memo, useEffect, useMemo } from "react"
+import { useDeferredValue, memo, useEffect, useMemo, useState, useRef, useCallback } from "react"
 import type { GitBlobObject, GitObject, GitTreeObject } from "~/analyzer/model"
 import { useClickedObject } from "~/contexts/ClickedContext"
 import { useComponentSize } from "~/hooks"
@@ -32,6 +32,8 @@ import type { DatabaseInfo } from "~/routes/$repo.$"
 import ignore, { type Ignore } from "ignore"
 import { cn, usePrefersLightMode } from "~/styling"
 import { isChrome, isChromium, isEdgeChromium } from "react-device-detect"
+import CollaborativeSession from "~/utils/websocket"
+import CollaborativeSession2 from "~/utils/webSockects"
 
 type CircleOrRectHiearchyNode = HierarchyCircularNode<GitObject> | HierarchyRectangularNode<GitObject>
 
@@ -112,72 +114,130 @@ export const Chart = memo(function Chart({ setHoveredObject }: { setHoveredObjec
   ) => Record<"onClick" | "onMouseOver" | "onMouseOut", MouseEventHandler<SVGGElement>> = (d, isRoot) => {
     return isBlob(d.data)
       ? {
-          onClick: (evt) => {
-            evt.stopPropagation()
-            return setClickedObject(d.data)
-          },
-          onMouseOver: () => setHoveredObject(d.data as GitObject),
-          onMouseOut: () => setHoveredObject(null)
-        }
+        onClick: (evt) => {
+          evt.stopPropagation()
+          return setClickedObject(d.data)
+        },
+        onMouseOver: () => setHoveredObject(d.data as GitObject),
+        onMouseOut: () => setHoveredObject(null)
+      }
       : {
-          onClick: (evt) => {
-            evt.stopPropagation()
-            setClickedObject(d.data)
-            setPath(d.data.path)
-          },
-          onMouseOver: (evt) => {
-            evt.stopPropagation()
-            if (!isRoot) setHoveredObject(d.data as GitObject)
-            else setHoveredObject(null)
-          },
-          onMouseOut: () => setHoveredObject(null)
-        }
+        onClick: (evt) => {
+          evt.stopPropagation()
+          setClickedObject(d.data)
+          setPath(d.data.path)
+        },
+        onMouseOver: (evt) => {
+          evt.stopPropagation()
+          if (!isRoot) setHoveredObject(d.data as GitObject)
+          else setHoveredObject(null)
+        },
+        onMouseOut: () => setHoveredObject(null)
+      }
   }
+
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [clickPosition, setClickPosition] = useState(null);
+
+
+
+  const handleMouseMove = (e) => {
+    const newPosition = { x: e.clientX, y: e.clientY };
+
+    setMousePosition(newPosition);
+  };
+
+  const handleSvgClick = (e) => {
+    const clickData = { x: e.clientX, y: e.clientY };
+    setClickPosition(clickData); // Enviar al componente de colaboración
+    console.log("SVG clicked at:", clickData); // Opcional: Confirmar clic
+  };
+
+  // Función para reiniciar clickPosition
+  const resetClickPosition = () => {
+    setClickPosition(null);
+  };
+
 
   const now = isChrome || isChromium || isEdgeChromium ? Date.now() : 0 // Necessary in chrome to update text positions
   return (
-    <div className="relative grid place-items-center overflow-hidden" ref={ref}>
-      <svg
-        key={`svg|${size.width}|${size.height}`}
-        className={clsx("grid h-full w-full place-items-center stroke-gray-300 dark:stroke-gray-700", {
-          "cursor-zoom-out": path.includes("/")
-        })}
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox={`0 0 ${size.width} ${size.height}`}
-        onClick={() => {
-          // Move up to parent
-          const parentPath = path.split("/").slice(0, -1).join("/")
-          // Check if parent is root
-          if (parentPath === "") setPath("/")
-          else setPath(parentPath)
-        }}
+    <div className="relative grid place-items-center overflow-hidden bg-blue-600">
+      {/* <!-- Frontal (CollaborativeSession) --> */}
+
+
+      {/* <!-- SVG Section (Fondo) --> */}
+      <div className="z-10 relative grid place-items-center overflow-hidden bg-amber-800 h-[100%] w-[100%]" ref={ref}
+        onMouseMove={handleMouseMove}
       >
-        {nodes.map((d, i) => {
-          return (
-            <g
-              key={d.data.path}
-              className={clsx("transition-opacity hover:opacity-60", {
-                "cursor-pointer": i === 0,
-                "cursor-zoom-in": i > 0 && isTree(d.data),
-                "animate-blink": clickedObject?.path === d.data.path
-              })}
-              {...createGroupHandlers(d, i === 0)}
-            >
-              {(numberOfDepthLevels === undefined || d.depth <= numberOfDepthLevels) && (
-                <>
-                  <Node key={d.data.path} d={d} isSearchMatch={Boolean(searchResults[d.data.path])} />
-                  {labelsVisible && (
-                    <NodeText key={`text|${path}|${d.data.path}|${chartType}|${sizeMetric}|${now}`} d={d}>
-                      {collapseText({ d, isRoot: i === 0, path, displayText: d.data.name, chartType })}
-                    </NodeText>
-                  )}
-                </>
-              )}
-            </g>
-          )
-        })}
-      </svg>
+
+        {/* <div className="z-10  relative grid place-items-center overflow-hidden bg-amber-800 row-start-1 col-start-1" ref={ref} > */}
+        <svg
+          key={`svg|${size.width}|${size.height}`}
+          className={clsx("grid h-full w-full place-items-center stroke-gray-300 dark:stroke-gray-700", {
+            "cursor-zoom-out": path.includes("/")
+          })}
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox={`0 0 ${size.width} ${size.height}`}
+          onClick={(e) => {
+
+            // Llamar a handleSvgClick para capturar las coordenadas del clic
+            handleSvgClick(e);
+
+            // Move up to parent
+            const parentPath = path.split("/").slice(0, -1).join("/")
+            // Check if parent is root
+            if (parentPath === "") setPath("/")
+            else setPath(parentPath)
+          }}
+        >
+          {nodes.map((d, i) => {
+            const isBlinking = clickedObject?.path === d.data.path;
+            return (
+              <g
+                key={d.data.path}
+                className={clsx("transition-opacity hover:opacity-60", {
+                  "cursor-pointer": i === 0,
+                  "cursor-zoom-in": i > 0 && isTree(d.data),
+                  "animate-blink": isBlinking,
+                })}
+                {...createGroupHandlers(d, i === 0)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isBlinking) {
+                    handleBlinkClick(d.data.path); // Abre el cuadro de texto si está parpadeando
+                  } else {
+                    // Llamar al comportamiento por defecto del grupo (ej. zoom)
+                    if (isBlob(d.data)) {
+                      setClickedObject(d.data);
+                    } else {
+                      setPath(d.data.path);
+                    }
+                  }
+                }}
+              >
+                {(numberOfDepthLevels === undefined || d.depth <= numberOfDepthLevels) && (
+                  <>
+                    <Node key={d.data.path} d={d} isSearchMatch={Boolean(searchResults[d.data.path])} />
+                    {labelsVisible && (
+                      <NodeText key={`text|${path}|${d.data.path}|${chartType}|${sizeMetric}|${now}`} d={d}>
+                        {collapseText({ d, isRoot: i === 0, path, displayText: d.data.name, chartType })}
+                      </NodeText>
+                    )}
+                  </>
+                )}
+              </g>
+            )
+          })}
+        </svg>
+
+
+      </div>
+      {/* <!-- Frontal --> */}
+      <div className="z-998 absolute inset-0 flex items-center justify-center pointer-events-none " >
+        <CollaborativeSession2 mousePosition={mousePosition} clickPosition={clickPosition} resetClickPosition={resetClickPosition} />
+      </div>
     </div>
+
   )
 })
 
@@ -356,8 +416,8 @@ function NodeText({ d, children = null }: { d: CircleOrRectHiearchyNode; childre
   const fillColor = isBlob(d.data)
     ? getTextColorFromBackground(metricsData.get(metricType)?.colormap.get(d.data.path) ?? "#333")
     : prefersLightMode
-    ? "#333"
-    : "#fff"
+      ? "#333"
+      : "#fff"
 
   const textPathBaseProps = {
     startOffset: isBubbleChart ? "50%" : undefined,

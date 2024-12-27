@@ -12,7 +12,7 @@ export default function CollaborativeSession() {
     const storedSessionId = sessionStorage.getItem("sessionId");
     wsRef.current = new WebSocket("ws://localhost:5000");
     // wsRef.current = new WebSocket("wss://2m2w0zf1-3001.brs.devtunnels.ms/")
-    
+
     wsRef.current.onopen = () => {
       console.log("Connected to WebSocket server");
       wsRef.current?.send(
