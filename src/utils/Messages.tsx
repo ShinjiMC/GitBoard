@@ -7,10 +7,13 @@ export default function Messages({ roomId, userId }: { roomId: string; userId: s
   const [isRecording, setIsRecording] = useState(false);
   const [messages, setMessages] = useState<any[]>([]); // Estado para los mensajes
   const [newMessage, setNewMessage] = useState(""); // Estado para el nuevo mensaje
+  const [audios, setAudios] = useState<any[]>([])
+  const audioURLs = useRef<{ [key: number]: string }>({}); // Almacenar URLs generados para los audios
 
   useEffect(() => {
     // Conexión WebSocket
-    ws.current = new WebSocket("ws://localhost:5000/");
+    //ws.current = new WebSocket("ws://localhost:5000/");
+    ws.current = new WebSocket("wss://cnwl3hx9-5000.brs.devtunnels.ms/");
 
     ws.current.onopen = () => {
       setIsConnected(true);
@@ -20,15 +23,20 @@ export default function Messages({ roomId, userId }: { roomId: string; userId: s
       const data = JSON.parse(event.data);
 
       if (data.type === "new_audio_message") {
-        if (data.roomId === roomId && data.userId !== userId) {
-          const audioArrayBuffer = new Uint8Array(data.audio).buffer; // Reconstruir el ArrayBuffer
-          const blob = new Blob([audioArrayBuffer], { type: "audio/webm" });
-          const audioURL = URL.createObjectURL(blob);
+        //if (data.roomId === roomId && data.userId !== userId) {
+        const audioArrayBuffer = new Uint8Array(data.audio).buffer; // Reconstruir el ArrayBuffer
+        setAudios((prevMessages) => [
+          ...prevMessages,
+          { type: "audio", audio: audioArrayBuffer },
+        ]);
+        //console.log(audios)
+        //const blob = new Blob([audioArrayBuffer], { type: "audio/webm" });
+        //const audioURL = URL.createObjectURL(blob);
 
-          // Crear y reproducir el audio automáticamente
-          const audio = new Audio(audioURL);
-          audio.play().catch((error) => console.error("Error playing audio:", error));
-        }
+        // Crear y reproducir el audio automáticamente
+        //const audio = new Audio(audioURL);
+        //audio.play().catch((error) => console.error("Error playing audio:", error));
+        //}
       }
       if (data.type === "messages") {
         setMessages(data.messages); // Guardar los mensajes
@@ -51,6 +59,7 @@ export default function Messages({ roomId, userId }: { roomId: string; userId: s
     };
 
     return () => {
+      Object.values(audioURLs.current).forEach((url) => URL.revokeObjectURL(url));
       ws.current?.close(); // Cerrar WebSocket cuando el componente se desmonte
     };
   }, [roomId, userId]);
@@ -124,9 +133,19 @@ export default function Messages({ roomId, userId }: { roomId: string; userId: s
     setIsRecording(false);
   };
 
+  const getAudioURL = (audio: ArrayBuffer, index: number) => {
+    if (!audioURLs.current[index]) {
+      const blob = new Blob([audio], { type: "audio/webm" });
+      audioURLs.current[index] = URL.createObjectURL(blob);
+    }
+    return audioURLs.current[index];
+  };
   return (
     <div className="bg-gray-100 p-6 rounded-lg shadow-lg max-w-2xl mx-auto mt-8">
-      <button onClick={isRecording ? stopRecording : startRecording} className="bg-green-800 text-white rounded-md px-4 py-2 hover:bg-slate-800">
+      <button
+        onClick={isRecording ? stopRecording : startRecording}
+        className="bg-green-800 text-white rounded-md px-4 py-2 hover:bg-slate-800"
+      >
         {isRecording ? "Stop Recording" : "Record Audio"}
       </button>
       <ul className="space-y-4 w-full overflow-y-auto max-h-[45vh]">
@@ -135,8 +154,9 @@ export default function Messages({ roomId, userId }: { roomId: string; userId: s
             key={index}
             className={`p-2 rounded-lg ${index % 2 === 0 ? 'bg-blue-100' : 'bg-gray-100'}`}
           >
+
             <div className="flex justify-between items-center">
-              <img src={msg.image} className="w-8 h-8 rounded-full" />
+              <img src={msg.image} className="w-8 h-8 rounded-full" alt={msg.username} />
               <span className="font-semibold text-blue-600 text-sm">{msg.username.split(' ')[0]}</span>{" "}
             </div>
             <span>{msg.message}</span>
@@ -144,6 +164,9 @@ export default function Messages({ roomId, userId }: { roomId: string; userId: s
               <small>{new Date(msg.timestamp).toLocaleTimeString()}</small>
             </div>
           </li>
+        ))}
+        {audios.map((audio, index) => (
+          <audio key={index} controls src={getAudioURL(audio.audio, index)} />
         ))}
       </ul>
 
@@ -165,4 +188,5 @@ export default function Messages({ roomId, userId }: { roomId: string; userId: s
       </div>
     </div>
   );
+
 }
