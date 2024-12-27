@@ -1,7 +1,7 @@
 import type { HierarchyCircularNode, HierarchyNode, HierarchyRectangularNode } from "d3-hierarchy"
 import { hierarchy, pack, treemap, treemapResquarify } from "d3-hierarchy"
 import type { MouseEventHandler } from "react"
-import { useDeferredValue, memo, useEffect, useMemo } from "react"
+import { useDeferredValue, memo, useEffect, useMemo, useState } from "react"
 import type { GitBlobObject, GitObject, GitTreeObject } from "~/analyzer/model"
 import { useClickedObject } from "~/contexts/ClickedContext"
 import { useComponentSize } from "~/hooks"
@@ -45,6 +45,8 @@ export const Chart = memo(function Chart({ setHoveredObject }: { setHoveredObjec
   const { clickedObject, setClickedObject } = useClickedObject()
   const { setPath } = usePath()
   const { showFilesWithoutChanges } = useOptions()
+  const [openPath, setOpenPath] = useState<string | null>(null);
+  const [fileContent, setFileContent] = useState<string | null>(null);
 
   let numberOfDepthLevels: number | undefined = undefined
   switch (depthType) {
@@ -112,27 +114,42 @@ export const Chart = memo(function Chart({ setHoveredObject }: { setHoveredObjec
   ) => Record<"onClick" | "onMouseOver" | "onMouseOut", MouseEventHandler<SVGGElement>> = (d, isRoot) => {
     return isBlob(d.data)
       ? {
-          onClick: (evt) => {
-            evt.stopPropagation()
-            return setClickedObject(d.data)
-          },
-          onMouseOver: () => setHoveredObject(d.data as GitObject),
-          onMouseOut: () => setHoveredObject(null)
-        }
+        onClick: (evt) => {
+          evt.stopPropagation()
+          return setClickedObject(d.data)
+        },
+        onMouseOver: () => setHoveredObject(d.data as GitObject),
+        onMouseOut: () => setHoveredObject(null)
+      }
       : {
-          onClick: (evt) => {
-            evt.stopPropagation()
-            setClickedObject(d.data)
-            setPath(d.data.path)
-          },
-          onMouseOver: (evt) => {
-            evt.stopPropagation()
-            if (!isRoot) setHoveredObject(d.data as GitObject)
-            else setHoveredObject(null)
-          },
-          onMouseOut: () => setHoveredObject(null)
-        }
+        onClick: (evt) => {
+          evt.stopPropagation()
+          setClickedObject(d.data)
+          setPath(d.data.path)
+        },
+        onMouseOver: (evt) => {
+          evt.stopPropagation()
+          if (!isRoot) setHoveredObject(d.data as GitObject)
+          else setHoveredObject(null)
+        },
+        onMouseOut: () => setHoveredObject(null)
+      }
   }
+
+  const handleBlinkClick = async (path: string) => {
+    console.log(`Opening path: ${path}`);
+    setOpenPath(path);
+    try {
+      const response = await fetch(path);
+      if (!response.ok) throw new Error("Failed to fetch file content");
+      const text = await response.text();
+      setFileContent(text);
+    } catch (error) {
+      console.error("Error loading file:", error);
+      setFileContent("Unable to load file content");
+    }
+  };
+
 
   const now = isChrome || isChromium || isEdgeChromium ? Date.now() : 0 // Necessary in chrome to update text positions
   return (
@@ -153,15 +170,29 @@ export const Chart = memo(function Chart({ setHoveredObject }: { setHoveredObjec
         }}
       >
         {nodes.map((d, i) => {
+          const isBlinking = clickedObject?.path === d.data.path;
           return (
             <g
               key={d.data.path}
               className={clsx("transition-opacity hover:opacity-60", {
                 "cursor-pointer": i === 0,
                 "cursor-zoom-in": i > 0 && isTree(d.data),
-                "animate-blink": clickedObject?.path === d.data.path
+                "animate-blink": isBlinking,
               })}
               {...createGroupHandlers(d, i === 0)}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isBlinking) {
+                  handleBlinkClick(d.data.path); // Abre el cuadro de texto si está parpadeando
+                } else {
+                  // Llamar al comportamiento por defecto del grupo (ej. zoom)
+                  if (isBlob(d.data)) {
+                    setClickedObject(d.data);
+                  } else {
+                    setPath(d.data.path);
+                  }
+                }
+              }}
             >
               {(numberOfDepthLevels === undefined || d.depth <= numberOfDepthLevels) && (
                 <>
@@ -177,6 +208,34 @@ export const Chart = memo(function Chart({ setHoveredObject }: { setHoveredObjec
           )
         })}
       </svg>
+      {openPath && (
+        <div
+          className="absolute top-10 left-10 bg-white p-4 shadow-lg border rounded-md"
+          style={{ maxWidth: '90%' }} // Limita el ancho del cuadro emergente al 90% del contenedor principal
+        >
+          <button
+            className="absolute top-1 right-1 text-gray-500 hover:text-gray-700"
+            onClick={() => {
+              setOpenPath(null);
+              setFileContent(null);
+            }}
+          >
+            ✕
+          </button>
+          <h3 className="text-lg font-bold">Path Viewer</h3>
+          <p className="text-sm text-gray-600 mb-2">Path: {openPath}</p>
+          <pre
+            className="overflow-auto p-2 bg-gray-100 rounded border text-sm max-h-60 whitespace-pre-wrap break-words"
+            style={{
+              maxWidth: '100%', // El pre nunca será más ancho que el contenedor
+              wordWrap: 'break-word', // Rompe palabras largas si exceden el ancho
+            }}
+          >
+            {fileContent || 'Loading...'}
+          </pre>
+        </div>
+      )}
+
     </div>
   )
 })
@@ -356,8 +415,8 @@ function NodeText({ d, children = null }: { d: CircleOrRectHiearchyNode; childre
   const fillColor = isBlob(d.data)
     ? getTextColorFromBackground(metricsData.get(metricType)?.colormap.get(d.data.path) ?? "#333")
     : prefersLightMode
-    ? "#333"
-    : "#fff"
+      ? "#333"
+      : "#fff"
 
   const textPathBaseProps = {
     startOffset: isBubbleChart ? "50%" : undefined,
