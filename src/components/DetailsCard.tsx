@@ -141,10 +141,10 @@ export function DetailsCard({
       })}
       {...(backgroundColor
         ? {
-            style: {
-              backgroundColor
-            }
+          style: {
+            backgroundColor
           }
+        }
         : {})}
     >
       <div className="flex">

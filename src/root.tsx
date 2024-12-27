@@ -86,8 +86,8 @@ export function App() {
       </head>
       <ThemeProvider>
         <Body>
-          <div className="relative">
-            <div className="z-50 absolute top-1 right-1">
+          <div className="w-full flex items-center justify-end px-2 pt-2">
+            <div className="z-50 top-1 right-1">
               <SignedIn>
                 <UserButton />
               </SignedIn>

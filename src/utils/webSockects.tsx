@@ -76,8 +76,6 @@ export default function CollaborativeSession2({ mousePosition, clickPosition, re
                 }));
             }
 
-            // Verifica si el cliente que recibe es el mismo que envió
-
             if (data.type === "cursor") {
                 if (data.sessionId !== sessionId) {
                     console.log("Click event received from another client:", data);

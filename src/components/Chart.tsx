@@ -1,6 +1,8 @@
 import type { HierarchyCircularNode, HierarchyNode, HierarchyRectangularNode } from "d3-hierarchy"
 import { hierarchy, pack, treemap, treemapResquarify } from "d3-hierarchy"
 import type { MouseEventHandler } from "react"
+import { type Fetcher, Form, useFetcher, useLocation, useNavigation } from "@remix-run/react"
+
 import { useDeferredValue, memo, useEffect, useMemo, useState, useRef, useCallback } from "react"
 import type { GitBlobObject, GitObject, GitTreeObject } from "~/analyzer/model"
 import { useClickedObject } from "~/contexts/ClickedContext"
@@ -40,6 +42,7 @@ type CircleOrRectHiearchyNode = HierarchyCircularNode<GitObject> | HierarchyRect
 export const Chart = memo(function Chart({ setHoveredObject }: { setHoveredObject: (obj: GitObject | null) => void }) {
   const [ref, rawSize] = useComponentSize()
   const { searchResults } = useSearch()
+  const location = useLocation()
   const size = useDeferredValue(rawSize)
   const { databaseInfo } = useData()
   const { chartType, sizeMetric, depthType, hierarchyType, labelsVisible, renderCutoff } = useOptions()
@@ -47,6 +50,8 @@ export const Chart = memo(function Chart({ setHoveredObject }: { setHoveredObjec
   const { clickedObject, setClickedObject } = useClickedObject()
   const { setPath } = usePath()
   const { showFilesWithoutChanges } = useOptions()
+  const [openPath, setOpenPath] = useState<string | null>(null);
+  const [fileContent, setFileContent] = useState<string | null>(null);
 
   let numberOfDepthLevels: number | undefined = undefined
   switch (depthType) {
@@ -136,6 +141,29 @@ export const Chart = memo(function Chart({ setHoveredObject }: { setHoveredObjec
       }
   }
 
+  const handleBlinkClick = (path: string) => {
+    console.log(`Opening file at: ${path}`);
+
+    // Enviar el path mediante un POST (similar al comportamiento de tu Form)
+    fetch(location.pathname, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded", // Usamos el mismo tipo de contenido que un formulario tradicional
+      },
+      body: new URLSearchParams({
+        open: path, // Similar al input hidden en tu Form
+      }),
+    })
+      .then((response) => response.json()) // Si el backend devuelve algo, lo procesamos
+      .then((data) => {
+        console.log("File opened successfully:", data);
+      })
+      .catch((error) => {
+        console.error("Error opening file:", error);
+      });
+  };
+
+
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [clickPosition, setClickPosition] = useState(null);
 
@@ -184,10 +212,10 @@ export const Chart = memo(function Chart({ setHoveredObject }: { setHoveredObjec
             handleSvgClick(e);
 
             // Move up to parent
-            const parentPath = path.split("/").slice(0, -1).join("/")
+            const parentPath = path.split("/").slice(0, -1).join("/");
             // Check if parent is root
-            if (parentPath === "") setPath("/")
-            else setPath(parentPath)
+            if (parentPath === "") setPath("/");
+            else setPath(parentPath);
           }}
         >
           {nodes.map((d, i) => {
